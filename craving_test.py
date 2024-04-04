@@ -22,7 +22,7 @@ def format_input(user_input):
                         <|im_start|>user
                         Keep your answer very very SHORT
                         Extract the beverage brands and products from the following Social Media Post in a list. Example - Coke, Sprite, Soda
-                        Tell me the emotion expressed towards the brand in the following social media post. The emotion has to be only one of the following, DO NOT GENERATE ANY EMOTIONS OTHER THAN THESE - ['amusement', 'excitement', 'joy', 'love', 'desire', 'optimism', 'caring', 'pride', 'admiration', 'gratitude', 'relief', 'approval', 'realization', 'surprise', 'curiosity', 'confusion', 'fear', 'nervousness', 'remorse', 'embarrassment', 'disappointment', 'sadness', 'grief', 'disgust', 'anger', 'annoyance', 'disapproval', 'contempt', 'neutral']. The brands or products must be extracted separately with emotions associated to each one. Every extracted brand or product must have an emotion associated. Social Media Post: {user_input} <|im_end|>                                                                             
+                        Tell me the emotion expressed towards the brand in the following social media post. The emotion has to be only one of the following, DO NOT GENERATE ANY EMOTIONS OTHER THAN THESE, DO NOT GENERATE EMOTIONS SUCH AS RELAXATION - ['amusement', 'excitement', 'joy', 'love', 'desire', 'optimism', 'caring', 'pride', 'admiration', 'gratitude', 'relief', 'approval', 'realization', 'surprise', 'curiosity', 'confusion', 'fear', 'nervousness', 'remorse', 'embarrassment', 'disappointment', 'sadness', 'grief', 'disgust', 'anger', 'annoyance', 'disapproval', 'contempt', 'neutral']. The brands or products must be extracted separately with emotions associated to each one. Every extracted brand or product must have an emotion associated. Social Media Post: {user_input} <|im_end|>                                                                             
                         <|im_start|>assistant"""
     return input_string
 
@@ -61,6 +61,8 @@ if submit_button and user_input:
     generated_text = output[0]['generated_text']
     cleaned_text = generated_text.split(formatted_input)[-1].strip()
     cleaned_text = cleaned_text.replace("assistant", "")
+    cleaned_text = cleaned_text.replace("relaxation,", "")
+    cleaned_text = cleaned_text.replace("relaxation", "")
 
     # Add user input and AI response to chat history
     st.session_state.chat_history.append({"user": user_input, "assistant": cleaned_text})
