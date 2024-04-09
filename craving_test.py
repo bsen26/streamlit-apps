@@ -46,7 +46,7 @@ def display_chat_history():
                     st.markdown(f"**AI:** {chat['assistant']}", unsafe_allow_html=True)
 
 # Create an input field for the user
-user_input = st.text_input("Type your message here:", key="user_input_active")
+user_input = st.text_input("Enter you Post here:", key="user_input_active")
 
 # Create a text area for the user to modify the prompt
 custom_prompt = st.text_area("Customize the prompt (optional):", value="""
