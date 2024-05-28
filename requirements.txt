@@ -1,5 +1,1 @@
 openpyxl
-streamlit
-pandas
-re
-io
