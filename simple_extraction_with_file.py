@@ -3,21 +3,53 @@ import pandas as pd
 import re
 import io
 
-def extract_quantifications(file, search_terms):
-    df = pd.read_excel(file)
+def extract_quantifications(data_file, terms_file):
+    data_df = pd.read_excel(data_file)
+    terms_df = pd.read_excel(terms_file)
+
     quantifications = {}
     extracted_data = []
 
-    for term, keywords in search_terms.items():
-        if isinstance(keywords, str):
-            keywords = [k.strip() for k in keywords.split(',')]
-        else:
-            keywords = [k.strip() for k in keywords]
-        pattern = r'|'.join(map(re.escape, keywords))
-        df['count'] = df['Sound Bite Text'].str.contains(pattern, case=False).astype(int)
-        quantifications[term] = df['count'].sum()
+    for _, row in terms_df.iterrows():
+        term = row['Terms']
+        include_terms = []
+        exclude_terms = []
 
-        extracted_rows = df[df['count'] == 1][['Post ID','Sound Bite Text']].reset_index(drop=True)
+        for phrase in row['Include Terms'].split(','):
+            if '~' in phrase:
+                phrase, slop = phrase.split('~')
+                slop = int(slop)
+                pattern = r'\b{}\b(?:\W+\w+){0,SLOP_PLACEHOLDER}?\b(?=.*?\b\w*?(?:\W+\w+){0,SLOP_PLACEHOLDER}?\b)'
+                pattern = re.sub(r'SLOP_PLACEHOLDER', str(slop), pattern)
+            else:
+                pattern = r'\b{}\b'.format(re.escape(phrase))  # Match exact phrase
+
+            include_terms.append(pattern)
+
+        if pd.notnull(row['Exclude Terms']):
+            for phrase in row['Exclude Terms'].split(','):
+                if '~' in phrase:
+                    phrase, slop = phrase.split('~')
+                    slop = int(slop)
+                    pattern = r'\b{}\b(?:\W+\w+){0,SLOP_PLACEHOLDER}?\b(?=.*?\b\w*?(?:\W+\w+){0,SLOP_PLACEHOLDER}?\b)'
+                    pattern = re.sub(r'SLOP_PLACEHOLDER', str(slop), pattern)
+                else:
+                    pattern = r'\b{}\b'.format(re.escape(phrase))  # Match exact phrase
+
+                exclude_terms.append(pattern)
+
+        include_pattern = r'|'.join(include_terms)
+        data_df['include_count'] = data_df['Sound Bite Text'].str.contains(include_pattern, case=False, regex=True).astype(int)
+
+        if exclude_terms:
+            exclude_pattern = r'|'.join(exclude_terms)
+            data_df['exclude_count'] = data_df['Sound Bite Text'].str.contains(exclude_pattern, case=False, regex=True).astype(int)
+            data_df['count'] = data_df['include_count'] - data_df['exclude_count']
+        else:
+            data_df['count'] = data_df['include_count']
+
+        quantifications[term] = data_df['count'].sum()
+        extracted_rows = data_df[data_df['count'] == 1][['Post ID', 'Sound Bite Text']].reset_index(drop=True)
         extracted_rows['Extractions'] = term
         extracted_data.extend(extracted_rows.to_dict('records'))
 
@@ -25,37 +57,22 @@ def extract_quantifications(file, search_terms):
 
 def main():
     st.title("113 Quantification Tool")
+    data_file = st.file_uploader("Upload the data file", type=["xlsx"])
+    terms_file = st.file_uploader("Upload the terms file", type=["xlsx"])
 
-    file = st.file_uploader("Upload an Excel file", type=["xlsx"])
-
-    if file is not None:
-        search_terms = {}
-        num_terms = st.number_input("Enter the number of terms to search for", min_value=1, step=1)
-
-        for i in range(num_terms):
-            term = st.text_input(f"Enter term {i+1}", key=f"term_{i+1}")
-            keywords = st.text_area(f"Enter keywords for '{term}' (comma-separated)", key=f"keywords_{i+1}")
-            if keywords:
-                keywords = [k.strip() for k in keywords.split(",")]
-                search_terms[term] = keywords
-
+    if data_file is not None and terms_file is not None:
         if st.button("Extract Quantifications"):
-            quantifications, extracted_data = extract_quantifications(file, search_terms)
+            quantifications, extracted_data = extract_quantifications(data_file, terms_file)
             st.write("Quantifications:")
             for term, count in quantifications.items():
                 st.write(f"{term}: {count}")
 
             output_df = pd.DataFrame(extracted_data)
             output_file = "output_file.xlsx"
-
-            # Create a BytesIO object to store the Excel data
             xlsx_buffer = io.BytesIO()
-
-            # Save the DataFrame to the BytesIO object
             with pd.ExcelWriter(xlsx_buffer) as writer:
                 output_df.to_excel(writer, index=False, sheet_name='Sheet1')
 
-            # Create a download link for the Excel file
             st.download_button(
                 label="Download Output File",
                 data=xlsx_buffer.getvalue(),
